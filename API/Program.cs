@@ -1,3 +1,4 @@
+using API.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Persistence;
 
@@ -6,21 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-builder.Services.AddDbContext<DataContext>(opt => 
-{
-    opt.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection"));
-});
-
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("CorsPolicy", policy => {
-        policy.AllowAnyMethod().AllowAnyHeader().WithOrigins("http://localhost:3000");
-    });
-});
-
+builder.Services.AddApplicationServices(builder.Configuration);
 
 var app = builder.Build();
 
@@ -38,19 +25,19 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-using var scope = app.Services.CreateScope();
-var services = scope.ServiceProvider;
+using var scope = app.Services.CreateScope(); //ASP.NET Core uygulamasındaki hizmetlerin kapsamını oluşturur. Bu, hizmet sağlayıcısına erişmek için bir kapsam (scope) oluşturur.
+var services = scope.ServiceProvider; //kapsamdaki hizmet sağlayıcısına erişimi sağlar. Bu, bağımlılıkların çözümlenmesi için kullanılır.
 
 try
 {
-    var context = services.GetRequiredService<DataContext>();
-    await context.Database.MigrateAsync();
-    await Seed.SeedData(context);
+    var context = services.GetRequiredService<DataContext>(); //DataContext tipindeki hizmeti alır. GetRequiredService<T>() metodu, verilen türdeki hizmeti alırken hizmetin bulunamaması durumunda bir hata fırlatır.
+    await context.Database.MigrateAsync(); //veritabanının migrasyon işlemini gerçekleştirir. Bu, mevcut veritabanının şema ve yapısını günceller veya oluşturur.
+    await Seed.SeedData(context); // başlangıç verilerinin eklenmesini sağlayan bir yöntemi çağırır. Bu, uygulamanın başlatılmasıyla birlikte veritabanına bazı başlangıç verilerinin eklenmesini sağlar.
 }
 catch (Exception ex)
 {
-    var logger = services.GetRequiredService<ILogger<Program>>();
-    logger.LogError(ex , "An error occured during migration");
+    var logger = services.GetRequiredService<ILogger<Program>>(); //ILogger<Program> türünde bir hizmet alır. Bu, hata günlüğü (error log) için bir kaydediciyi almak için kullanılır.
+    logger.LogError(ex , "An error occured during migration"); //hata günlüğüne bir hata mesajı kaydeder. Hata günlüğüne kaydedilen hata mesajı, ex parametresi tarafından temsil edilen istisnayı içerir.
 }
 
 app.Run();
