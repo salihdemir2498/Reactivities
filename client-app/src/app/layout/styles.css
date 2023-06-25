@@ -7,4 +7,6 @@ body {
 }
 
 .selectActivity  {
-  background-image: linear-gradient(329deg, rgb(24,42,115) 0%, rgb(57 124 36) 69%, rgb(110 250 255) 89%) !important;}
+  background-image: linear-gradient(329deg, rgb(24,42,115) 0%, rgb(57 124 36) 69%, rgb(110 250 255) 89%) !important;
+  padding: 10px 6px !important;
+}
