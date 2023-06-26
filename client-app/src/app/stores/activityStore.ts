@@ -1,12 +1,13 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import { Activity } from "../models/activity";
 import agent from "../api/agent";
-import {v4 as uuid} from 'uuid';
+import { v4 as uuid } from 'uuid';
+import $ from 'jquery';
 
 
 export default class ActivityStore {
     // activities: Activity[] = [];
-    activityRegistry = new Map<string , Activity>(); //activityRegistry bir Map nesnesi oluşturularak tanımlanmış. Map nesnesi, anahtar-değer çiftlerini saklayabilen bir koleksiyon nesnesidir.
+    activityRegistry = new Map<string, Activity>(); //activityRegistry bir Map nesnesi oluşturularak tanımlanmış. Map nesnesi, anahtar-değer çiftlerini saklayabilen bir koleksiyon nesnesidir.
     selectedActivity: Activity | undefined;
     editMode = false;
     loading = false;
@@ -18,7 +19,7 @@ export default class ActivityStore {
     }
 
     get activitiesByDate() {
-        return Array.from(this.activityRegistry.values()).sort((a,b) => 
+        return Array.from(this.activityRegistry.values()).sort((a, b) =>
             Date.parse(a.date) - Date.parse(b.date));
     }
 
@@ -28,54 +29,74 @@ export default class ActivityStore {
     // Array.from(this.activityRegistry.values()) ifadesi, activityRegistry haritasının değerlerini bir diziye dönüştürmektedir. 
     //Bu dizi, tüm aktiviteleri içermektedir.
 
-   //sort((a, b) => Date.parse(a.date) - Date.parse(b.date)) ifadesi, aktiviteleri tarihlerine göre sıralamaktadır. 
-   //Date.parse(a.date) ve Date.parse(b.date) ifadeleri, her bir aktivitenin tarihini parsalamak için kullanılmaktadır. 
-   //Karşılaştırma işlemi, tarihlerin sayısal değerlerine göre gerçekleştirilir ve sonuçta sıralanmış bir dizi elde edilir.
+    //sort((a, b) => Date.parse(a.date) - Date.parse(b.date)) ifadesi, aktiviteleri tarihlerine göre sıralamaktadır. 
+    //Date.parse(a.date) ve Date.parse(b.date) ifadeleri, her bir aktivitenin tarihini parsalamak için kullanılmaktadır. 
+    //Karşılaştırma işlemi, tarihlerin sayısal değerlerine göre gerçekleştirilir ve sonuçta sıralanmış bir dizi elde edilir.
 
     loadActivities = async () => {
-       this.setLoadingInitial(true);
+        this.selectedActivity = undefined;
+        this.setLoadingInitial(true);
 
         try {
             const activities = await agent.Activities.list();
-          
-                activities.forEach(activity => {
-                    activity.date = activity.date.split('T')[0]; //Bu, tarih ve saat bilgisini ayırır ve sadece tarihi alır.
-                    // this.activities.push(activity);
-                    this.activityRegistry.set(activity.id, activity);
-                  })
-                  this.setLoadingInitial(false);
-            
-         
+
+            activities.forEach(activity => {
+              this.setActivity(activity);
+            })
+            this.setLoadingInitial(false);
+
+
         } catch (error) {
             console.log(error);
-            
+
             this.setLoadingInitial(false);
-            
+
         }
+    }
+
+    loadActivity =  async (id: string) => {
+        let activity = this.getActivity(id); 
+        
+        if(activity) {
+            this.selectedActivity = activity;
+            return activity;
+        }
+        else {
+            this.setLoadingInitial(true);
+            try {
+                activity = await agent.Activities.details(id);
+                this.setActivity(activity);
+                runInAction(() => { this.selectedActivity = activity });
+                
+                this.setLoadingInitial(false);
+                return activity;
+            } catch (error) {
+                console.log(error);
+                this.setLoadingInitial(false);
+            }
+        }
+    }
+
+    //loadActivity işlevi, belirli bir aktiviteyi yüklemek için agent.Activities.details(id) metodunu kullanır. İlk olarak activityRegistry'den 
+    //aktiviteyi kontrol eder, eğer bulunursa selectedActivity'yi ayarlar ve aktiviteyi döndürür. 
+    //Bulunamazsa, activityRegistry'yi yükleme işlemi başlatır ve hata durumunda konsola hata mesajını yazdırır.
+
+
+    private getActivity = (id: string) => {
+       return this.activityRegistry.get(id);
+    }
+
+    private setActivity = (activity: Activity) => {
+        activity.date = activity.date.split('T')[0]; //Bu, tarih ve saat bilgisini ayırır ve sadece tarihi alır.
+        // this.activities.push(activity);
+        this.activityRegistry.set(activity.id, activity);
     }
 
     setLoadingInitial = (state: boolean) => {
         this.loadingInitial = state;
     }
 
-    selectActivity = (id: string) => {
-        // this.selectedActivity = this.activities.find(a => a.id == id);
-        this.selectedActivity = this.activityRegistry.get(id)
-
-    }
-
-    cancelSelectedActivity = () => {
-        this.selectedActivity = undefined;
-    }
-
-    openForm = (id?: string) => {
-        id ? this.selectActivity(id) : this.cancelSelectedActivity();
-        this.editMode = true;
-    }
-    
-    closeForm = () => {
-        this.editMode = false;
-    }
+  
 
     createActivity = async (activity: Activity) => {
         this.loading = true;
@@ -83,7 +104,7 @@ export default class ActivityStore {
         try {
             await agent.Activities.create(activity);
             runInAction(() => {
-                this.activityRegistry.set(activity.id,activity);
+                this.activityRegistry.set(activity.id, activity);
                 this.selectedActivity = activity;
                 this.editMode = false;
                 this.loading = false;
@@ -99,22 +120,22 @@ export default class ActivityStore {
     updateActivity = async (activity: Activity) => {
         this.loading = true;
         try {
-           await agent.Activities.update(activity);
-           runInAction(() => {
-            // this.activities = [...this.activities.filter(a => a.id !== activity.id), activity];
-            this.activityRegistry.set(activity.id, activity);
+            await agent.Activities.update(activity);
+            runInAction(() => {
+                // this.activities = [...this.activities.filter(a => a.id !== activity.id), activity];
+                this.activityRegistry.set(activity.id, activity);
 
-            this.selectedActivity = activity;
-            this.editMode = false;
-            this.loading = false;
-           })
+                this.selectedActivity = activity;
+                this.editMode = false;
+                this.loading = false;
+            })
 
         } catch (error) {
             console.log(error);
             runInAction(() => {
                 this.loading = false;
             })
-            
+
         }
     }
 
@@ -123,11 +144,11 @@ export default class ActivityStore {
         try {
             await agent.Activities.delete(id);
             runInAction(() => {
-            // this.activities = [...this.activities.filter(a => a.id !== id)];
-            this.activityRegistry.delete(id);
+                // this.activities = [...this.activities.filter(a => a.id !== id)];
+                this.activityRegistry.delete(id);
 
-            this.editMode = false;
-            this.loading = false;
+                this.editMode = false;
+                this.loading = false;
             })
         } catch (error) {
             console.log(error);
