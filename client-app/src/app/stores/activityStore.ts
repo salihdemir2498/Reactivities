@@ -22,16 +22,59 @@ export default class ActivityStore {
         return Array.from(this.activityRegistry.values()).sort((a, b) =>
             Date.parse(a.date) - Date.parse(b.date));
     }
+   
 
-    //Bu kod parçası, activityRegistry haritasındaki tüm aktiviteleri alarak, tarihlerine göre sıralanmış bir dizi döndürmektedir. 
-    //activitiesByDate adında bir hesaplanmış özellik (computed property) olarak tanımlanmıştır.
+    get groupedActivities() {
+        return Object.entries(    //Object.entries() bir JavaScript yöntemidir ve bir nesnenin [anahtar, değer] çiftlerini içeren bir diziye dönüştürür. Bu yöntem, bir nesnenin özelliklerini ve değerlerini döngüyle işlemek veya nesnenin içeriğini başka bir formatta kullanmak için kullanışlıdır.
+            this.activitiesByDate.reduce((activities, activity) => {
+                const date = activity.date;
+                activities[date] = activities[date] ? [...activities[date], activity] : [activity];
+                return activities;
+            }, {} as { [key: string]: Activity[] })  //{} as {[key: string]: Activity[]} ifadesi, bir boş nesneyi, anahtarları string ve değerleri Activity dizisi olan bir yapıya sahip olduğunu belirtmek için kullanmaktadır.
+        )
+    }
 
-    // Array.from(this.activityRegistry.values()) ifadesi, activityRegistry haritasının değerlerini bir diziye dönüştürmektedir. 
-    //Bu dizi, tüm aktiviteleri içermektedir.
+    get groupedActivitiesTwo() {
+        const result = [];
+        const activityMap: { [key: string]: Activity[] } = {};
 
-    //sort((a, b) => Date.parse(a.date) - Date.parse(b.date)) ifadesi, aktiviteleri tarihlerine göre sıralamaktadır. 
-    //Date.parse(a.date) ve Date.parse(b.date) ifadeleri, her bir aktivitenin tarihini parsalamak için kullanılmaktadır. 
-    //Karşılaştırma işlemi, tarihlerin sayısal değerlerine göre gerçekleştirilir ve sonuçta sıralanmış bir dizi elde edilir.
+        this.activitiesByDate.forEach(activity => {
+            const date = activity.date;
+            if (activityMap[date]) {
+                activityMap[date].push(activity);
+            } else {
+                activityMap[date] = [activity];
+            }
+        });
+
+        for (const date in activityMap) {
+            result.push([activityMap[date]]);
+        }
+
+        return result;
+    }
+
+    get groupActivitiesByDate() {
+        const activityMap: { [key: string]: Activity[] } = {};
+
+        this.activitiesByDate.forEach(object => {
+            const date = object.date;
+
+            if (activityMap[date]) {
+                activityMap[date].push(object);
+            } else {
+                activityMap[date] = [object];
+            }
+        });
+
+        // Gruplanmış etkinlikleri bir dizi olarak döndür
+        return Object.entries(activityMap);
+
+    }
+
+
+    //Bu yöntem, activitiesByDate dizisindeki etkinlikleri tarihlerine göre gruplandırmak ve gruplanmış etkinlikleri bir dizi olarak 
+    //döndürmek için kullanılabilir.
 
     loadActivities = async () => {
         this.selectedActivity = undefined;
@@ -41,7 +84,7 @@ export default class ActivityStore {
             const activities = await agent.Activities.list();
 
             activities.forEach(activity => {
-              this.setActivity(activity);
+                this.setActivity(activity);
             })
             this.setLoadingInitial(false);
 
@@ -54,10 +97,10 @@ export default class ActivityStore {
         }
     }
 
-    loadActivity =  async (id: string) => {
-        let activity = this.getActivity(id); 
-        
-        if(activity) {
+    loadActivity = async (id: string) => {
+        let activity = this.getActivity(id);
+
+        if (activity) {
             this.selectedActivity = activity;
             return activity;
         }
@@ -67,7 +110,7 @@ export default class ActivityStore {
                 activity = await agent.Activities.details(id);
                 this.setActivity(activity);
                 runInAction(() => { this.selectedActivity = activity });
-                
+
                 this.setLoadingInitial(false);
                 return activity;
             } catch (error) {
@@ -83,7 +126,7 @@ export default class ActivityStore {
 
 
     private getActivity = (id: string) => {
-       return this.activityRegistry.get(id);
+        return this.activityRegistry.get(id);
     }
 
     private setActivity = (activity: Activity) => {
@@ -96,7 +139,7 @@ export default class ActivityStore {
         this.loadingInitial = state;
     }
 
-  
+
 
     createActivity = async (activity: Activity) => {
         this.loading = true;
