@@ -9,19 +9,19 @@ import { Fragment } from 'react';
 export default observer(function ActivityList() {
 
     const { activityStore } = useStore();
-    const { groupedActivities, groupedActivitiesTwo, groupActivitiesByDate } = activityStore;
+    const { groupedActivities, groupActivitiesByDate } = activityStore;
 
     console.log(groupedActivities);
-    console.log(groupedActivitiesTwo);
-    console.log(groupActivitiesByDate);
-    //üçüde çalışır
+    // console.log(groupedActivitiesTwo);
+    // console.log(groupActivitiesByDate);
+    //ikiside çalışır
 
 
 
 
     return (
         <>
-            {groupActivitiesByDate.map(([date, activities]) => (
+            {groupedActivities.map(([date, activities]) => (
                 <Fragment key={date}>
                     <Header sub color='teal'>
                         {date}

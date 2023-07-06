@@ -3,7 +3,7 @@ import { Activity } from "../models/activity";
 import agent from "../api/agent";
 import { v4 as uuid } from 'uuid';
 import $ from 'jquery';
-
+import { format } from "date-fns";
 
 export default class ActivityStore {
     // activities: Activity[] = [];
@@ -20,45 +20,26 @@ export default class ActivityStore {
 
     get activitiesByDate() {
         return Array.from(this.activityRegistry.values()).sort((a, b) =>
-            Date.parse(a.date) - Date.parse(b.date));
+            a.date!.getTime() - b.date!.getTime());
     }
    
 
     get groupedActivities() {
         return Object.entries(    //Object.entries() bir JavaScript yöntemidir ve bir nesnenin [anahtar, değer] çiftlerini içeren bir diziye dönüştürür. Bu yöntem, bir nesnenin özelliklerini ve değerlerini döngüyle işlemek veya nesnenin içeriğini başka bir formatta kullanmak için kullanışlıdır.
             this.activitiesByDate.reduce((activities, activity) => {
-                const date = activity.date;
-                activities[date] = activities[date] ? [...activities[date], activity] : [activity];
+                const date = format(activity.date!,'dd MMM yyyy');//toISOString() metodu, bir Date nesnesini ISO 8601 biçiminde bir dizeye dönüştürür. ISO 8601 biçimi, genel olarak tarih ve saatlerin uluslararası standart formatını temsil eder. Bu format, "YYYY-MM-DDTHH:mm:ss.sssZ" şeklindedir. "T" karakteri tarihi ve saati ayırmak için kullanılır.
+
+                activities[date] = activities[date] ? [...activities[date], activity] : [activity];//activities nesnesi içindeki bu tarih anahtarı kontrol ediliyor.Eğer tarih anahtarı zaten varsa, ilgili anahtarın değeri bir diziye dönüştürülüyor ve activity bu diziye ekleniyor.Eğer tarih anahtarı yoksa, yeni bir anahtar oluşturuluyor ve bu anahtarın değeri activity'yi içeren bir dizi olarak atanıyor.
                 return activities;
             }, {} as { [key: string]: Activity[] })  //{} as {[key: string]: Activity[]} ifadesi, bir boş nesneyi, anahtarları string ve değerleri Activity dizisi olan bir yapıya sahip olduğunu belirtmek için kullanmaktadır.
         )
-    }
-
-    get groupedActivitiesTwo() {
-        const result = [];
-        const activityMap: { [key: string]: Activity[] } = {};
-
-        this.activitiesByDate.forEach(activity => {
-            const date = activity.date;
-            if (activityMap[date]) {
-                activityMap[date].push(activity);
-            } else {
-                activityMap[date] = [activity];
-            }
-        });
-
-        for (const date in activityMap) {
-            result.push([activityMap[date]]);
-        }
-
-        return result;
     }
 
     get groupActivitiesByDate() {
         const activityMap: { [key: string]: Activity[] } = {};
 
         this.activitiesByDate.forEach(object => {
-            const date = object.date;
+            const date = object.date!.toISOString().split('T')[0];//format(object.date!, 'dd MMM yyyy');
 
             if (activityMap[date]) {
                 activityMap[date].push(object);
@@ -130,7 +111,7 @@ export default class ActivityStore {
     }
 
     private setActivity = (activity: Activity) => {
-        activity.date = activity.date.split('T')[0]; //Bu, tarih ve saat bilgisini ayırır ve sadece tarihi alır.
+        activity.date = new Date(activity.date!);
         // this.activities.push(activity);
         this.activityRegistry.set(activity.id, activity);
     }
