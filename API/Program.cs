@@ -1,5 +1,9 @@
 using API.Extensions;
 using API.Middleware;
+using Domain;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Persistence;
 
@@ -7,8 +11,18 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
-builder.Services.AddControllers();
+builder.Services.AddControllers(opt =>
+{
+    var policy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();//istemcilerin yetkilendirilmemiş kullanıcılara erişimini engelleyen bir yetkilendirme politikası oluşturulur ve bu politika filtrelere eklenir.
+
+    opt.Filters.Add(new AuthorizeFilter(policy)); // kontrolcülere gelen isteklerin yetkilendirme politikasına uygun olmasını sağlar. 
+
+    //Bu şekilde, kontrolcülere gelen isteklerin, yetkilendirilmemiş kullanıcılardan gelen isteklerin engellenmesi için yetkilendirme politikasına tabi olması sağlanır.
+
+});
+
 builder.Services.AddApplicationServices(builder.Configuration);
+builder.Services.AddIdentityServices(builder.Configuration);
 
 var app = builder.Build();
 
@@ -25,6 +39,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("CorsPolicy");
 
+
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
@@ -35,8 +51,9 @@ var services = scope.ServiceProvider; //kapsamdaki hizmet sağlayıcısına eri�
 try
 {
     var context = services.GetRequiredService<DataContext>(); //DataContext tipindeki hizmeti alır. GetRequiredService<T>() metodu, verilen türdeki hizmeti alırken hizmetin bulunamaması durumunda bir hata fırlatır.
+    var userManager = services.GetRequiredService<UserManager<AppUser>>(); 
     await context.Database.MigrateAsync(); //veritabanının migrasyon işlemini gerçekleştirir. Bu, mevcut veritabanının şema ve yapısını günceller veya oluşturur.
-    await Seed.SeedData(context); // başlangıç verilerinin eklenmesini sağlayan bir yöntemi çağırır. Bu, uygulamanın başlatılmasıyla birlikte veritabanına bazı başlangıç verilerinin eklenmesini sağlar.
+    await Seed.SeedData(context, userManager); // başlangıç verilerinin eklenmesini sağlayan bir yöntemi çağırır. Bu, uygulamanın başlatılmasıyla birlikte veritabanına bazı başlangıç verilerinin eklenmesini sağlar.
 }
 catch (Exception ex)
 {
