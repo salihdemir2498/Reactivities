@@ -4,6 +4,8 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Persistence;
 using System.Text;
+using Infrustructure.Security;
+using Microsoft.AspNetCore.Authorization;
 
 namespace API.Extensions
 {
@@ -32,7 +34,15 @@ namespace API.Extensions
                         };
                     });
 
+            services.AddAuthorization(options => 
+            {
+                options.AddPolicy("IsActivityHost", policy =>
+                {
+                    policy.Requirements.Add(new IsHostRequirement());
+                });
+            });
 
+            services.AddTransient<IAuthorizationHandler, IsHostRequirementHandler>();//IAuthorizationHandler arayüzüne karşılık gelen IsHostRequirementHandler sınıfını uygulamaya ekler. IAuthorizationHandler, ASP.NET Core yetkilendirme mekanizmasında gereksinimleri işlemek için kullanılan bir arayüzdür ve IsHostRequirementHandler, "IsHostRequirement" yetkilendirme gereksinimi için özel bir işleyici sağlar.
 
             services.AddScoped<TokenService>();
 
