@@ -14,7 +14,7 @@ namespace Application.Core
             CreateMap<Activity, Activity>();
 
             CreateMap<Activity, ActivityDto>()
-                .ForMember(d => d.HostUserName, o => o.MapFrom(s => s.Attendees
+                .ForMember(d => d.HostUsername, o => o.MapFrom(s => s.Attendees
                     .FirstOrDefault(x => x.IsHost).AppUser.UserName));
 
             //Bu satýr, Activity sýnýfýndaki Attendees koleksiyonundan, IsHost özelliði true olan katýlýmcýnýn AppUser özelliðinin UserName deðerini, ActivityDto sýnýfýndaki HostUserName özelliðine eþlemek için bir kural belirtir.

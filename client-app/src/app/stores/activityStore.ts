@@ -1,12 +1,13 @@
 import { makeAutoObservable, runInAction } from "mobx";
-import { Activity } from "../models/activity";
+import { Activity, ActivityFormValues } from "../models/activity";
 import agent from "../api/agent";
 import { v4 as uuid } from 'uuid';
 import $ from 'jquery';
 import { format } from "date-fns";
+import { store } from "./store";
+import { Profile } from "../models/profile";
 
 export default class ActivityStore {
-    // activities: Activity[] = [];
     activityRegistry = new Map<string, Activity>(); //activityRegistry bir Map nesnesi oluşturularak tanımlanmış. Map nesnesi, anahtar-değer çiftlerini saklayabilen bir koleksiyon nesnesidir.
     selectedActivity: Activity | undefined;
     editMode = false;
@@ -22,12 +23,12 @@ export default class ActivityStore {
         return Array.from(this.activityRegistry.values()).sort((a, b) =>
             a.date!.getTime() - b.date!.getTime());
     }
-   
+
 
     get groupedActivities() {
         return Object.entries(    //Object.entries() bir JavaScript yöntemidir ve bir nesnenin [anahtar, değer] çiftlerini içeren bir diziye dönüştürür. Bu yöntem, bir nesnenin özelliklerini ve değerlerini döngüyle işlemek veya nesnenin içeriğini başka bir formatta kullanmak için kullanışlıdır.
             this.activitiesByDate.reduce((activities, activity) => {
-                const date = format(activity.date!,'dd MMM yyyy');//toISOString() metodu, bir Date nesnesini ISO 8601 biçiminde bir dizeye dönüştürür. ISO 8601 biçimi, genel olarak tarih ve saatlerin uluslararası standart formatını temsil eder. Bu format, "YYYY-MM-DDTHH:mm:ss.sssZ" şeklindedir. "T" karakteri tarihi ve saati ayırmak için kullanılır.
+                const date = format(activity.date!, 'dd MMM yyyy');//toISOString() metodu, bir Date nesnesini ISO 8601 biçiminde bir dizeye dönüştürür. ISO 8601 biçimi, genel olarak tarih ve saatlerin uluslararası standart formatını temsil eder. Bu format, "YYYY-MM-DDTHH:mm:ss.sssZ" şeklindedir. "T" karakteri tarihi ve saati ayırmak için kullanılır.
 
                 activities[date] = activities[date] ? [...activities[date], activity] : [activity];//activities nesnesi içindeki bu tarih anahtarı kontrol ediliyor.Eğer tarih anahtarı zaten varsa, ilgili anahtarın değeri bir diziye dönüştürülüyor ve activity bu diziye ekleniyor.Eğer tarih anahtarı yoksa, yeni bir anahtar oluşturuluyor ve bu anahtarın değeri activity'yi içeren bir dizi olarak atanıyor.
                 return activities;
@@ -111,8 +112,16 @@ export default class ActivityStore {
     }
 
     private setActivity = (activity: Activity) => {
+        const user = store.userStore.user;
+        if (user) {
+
+            activity.isGoing = activity.attendees!.some(
+                a => a.username === user.username
+            );
+            activity.isHost = activity.hostUsername === user.username;
+            activity.host = activity.attendees?.find(x => x.username === activity.hostUsername);
+        }
         activity.date = new Date(activity.date!);
-        // this.activities.push(activity);
         this.activityRegistry.set(activity.id, activity);
     }
 
@@ -122,44 +131,37 @@ export default class ActivityStore {
 
 
 
-    createActivity = async (activity: Activity) => {
-        this.loading = true;
-        activity.id = uuid();
+    createActivity = async (activity: ActivityFormValues) => {
+        const user = store.userStore.user;
+        const attendee = new Profile(user!);
         try {
             await agent.Activities.create(activity);
+            const newActivity = new Activity(activity);
+            newActivity.hostUsername = user!.username;
+            newActivity.attendees = [attendee];
+            this.setActivity(newActivity);
             runInAction(() => {
-                this.activityRegistry.set(activity.id, activity);
-                this.selectedActivity = activity;
-                this.editMode = false;
-                this.loading = false;
+                this.selectedActivity = newActivity;
             })
         } catch (error) {
             console.log(error);
-            runInAction(() => {
-                this.loading = false;
-            })
         }
     }
 
-    updateActivity = async (activity: Activity) => {
-        this.loading = true;
+    updateActivity = async (activity: ActivityFormValues) => {
+        
         try {
             await agent.Activities.update(activity);
             runInAction(() => {
-                // this.activities = [...this.activities.filter(a => a.id !== activity.id), activity];
-                this.activityRegistry.set(activity.id, activity);
-
-                this.selectedActivity = activity;
-                this.editMode = false;
-                this.loading = false;
+                if (activity.id) {
+                    let updatedActivity = { ...this.getActivity(activity.id), ...activity };
+                    this.activityRegistry.set(activity.id, updatedActivity as Activity);
+                    this.selectedActivity = updatedActivity as Activity;
+                }
             })
 
         } catch (error) {
             console.log(error);
-            runInAction(() => {
-                this.loading = false;
-            })
-
         }
     }
 
@@ -179,6 +181,47 @@ export default class ActivityStore {
             runInAction(() => {
                 this.loading = false;
             })
+        }
+    }
+
+    updateAttendance = async () => {
+
+        this.loading = true;
+        const user = store.userStore.user;
+
+        try {
+            await agent.Activities.attend(this.selectedActivity!.id);
+            runInAction(() => {
+                if (this.selectedActivity?.isGoing) {
+                    this.selectedActivity.attendees = this.selectedActivity.attendees?.filter(a => a.username !== user?.username);
+                    this.selectedActivity.isGoing = false;
+                } else {
+                    const attendee = new Profile(user!);
+                    this.selectedActivity?.attendees?.push(attendee);
+                    this.selectedActivity!.isGoing = true;
+                }
+
+                this.activityRegistry.set(this.selectedActivity!.id, this.selectedActivity!);
+            })
+        } catch (error) {
+            console.log(error);
+        } finally {
+            runInAction(() => this.loading = false);
+        }
+    }
+
+    cancelActivityToggle = async () => {
+        this.loading = true;
+        try {
+            await agent.Activities.attend(this.selectedActivity!.id);
+            runInAction(() => {
+                this.selectedActivity!.isCancelled = !this.selectedActivity?.isCancelled;
+                this.activityRegistry.set(this.selectedActivity!.id, this.selectedActivity!);
+            })
+        } catch (error) {
+            console.log(error);
+        } finally {
+            runInAction(() => this.loading = false);
         }
     }
 }
