@@ -26,7 +26,7 @@ namespace API.Controllers
         [HttpPost("login")]
         public async Task<ActionResult<UserDTO>> Login(LoginDTO loginDTO)
         {
-            var user = await _userManager.FindByEmailAsync(loginDTO.Email);
+            var user = await _userManager.Users.Include(u => u.Photos).FirstOrDefaultAsync(x => x.Email == loginDTO.Email);
 
             if (user == null) return Unauthorized();
 
@@ -38,7 +38,7 @@ namespace API.Controllers
                 {
                    DisplayName = user.DisplayName,
                    Username= user.UserName,
-                   Image = null,
+                   Image = user.Photos.FirstOrDefault(x => x.IsMain)?.Url,
                    Token = _tokenService.CreateToken(user)
                 };
             }
@@ -84,10 +84,10 @@ namespace API.Controllers
         [HttpGet]
         public async Task<ActionResult<UserDTO>> GetCurrentUser()
         {
-            var user = await _userManager.FindByEmailAsync(User.FindFirstValue(ClaimTypes.Email));
-
-            //Bu kod parçası, _userManager örneği kullanılarak User nesnesinden (ClaimsPrincipal) kullanıcının e-posta adresini alır ve bu e-posta adresiyle _userManager üzerinden kullanıcıyı bulur.
-            //User.FindFirstValue(ClaimTypes.Email) ifadesi, User nesnesinin içerdiği Claims koleksiyonunda ClaimTypes.Email türünde olan ilk iddiayı bulur ve değerini döndürür.Bu durumda, kullanıcının e - posta adresini alır.
+            
+            var user = await _userManager.Users
+                .Include(u => u.Photos)
+                .FirstOrDefaultAsync(x => x.Email == User.FindFirstValue(ClaimTypes.Email));
 
             return CreateUserObject(user);
             
@@ -100,7 +100,7 @@ namespace API.Controllers
                 DisplayName = user.DisplayName,
                 Username = user.UserName,
                 Token = _tokenService.CreateToken(user),
-                Image = null
+                Image = user?.Photos?.FirstOrDefault(x => x.IsMain)?.Url
             };
         }
     }
